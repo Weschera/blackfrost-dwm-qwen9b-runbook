@@ -281,7 +281,9 @@ def project_matrix(weight: torch.Tensor, unit_directions, alpha: float,
     for d in unit_directions:
         if d.shape[0] != orig.shape[0]:
             raise PipelineError("STAGE-4", "direction dim != weight out-dim", (d.shape[0], orig.shape[0]))
-        d = d.detach().to(torch.float32)
+        # davinci: dtype-only .to() keeps CPU tensors on CPU; directions are
+        # captured on CPU by design, weights live on cuda:0 -- move device here
+        d = d.detach().to(device=weight.device, dtype=torch.float32)
         d = d / torch.linalg.vector_norm(d)
         comp = torch.matmul(d, out)                      # [d_in]
         comp_before = float(torch.linalg.vector_norm(comp))
@@ -339,7 +341,9 @@ def alpha_zero_identity(weight: torch.Tensor, unit_directions, alpha: float) -> 
     orig = weight.detach().to(torch.float32)
     out = orig.clone()
     for d in unit_directions:
-        d = d.detach().to(torch.float32)
+        # davinci: dtype-only .to() keeps CPU tensors on CPU; directions are
+        # captured on CPU by design, weights live on cuda:0 -- move device here
+        d = d.detach().to(device=weight.device, dtype=torch.float32)
         d = d / torch.linalg.vector_norm(d)
         comp = torch.matmul(d, out)
         out = out - alpha * torch.outer(d, comp)
