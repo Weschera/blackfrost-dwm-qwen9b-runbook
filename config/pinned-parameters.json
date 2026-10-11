@@ -6,7 +6,7 @@
   "bank_pairs": 32,
   "bank_rows_per_pair": 2,
   "controls_spec_sha256": "37204b8bf737308e4a70d4064cc025a9303882baae6f68cd26f5cc484fb843e1",
-  "alpha": 1.4,
+  "alpha": 0.6,
   "rounds": 3,
   "first_editable_layer": 2,
   "norm_error_max": 0.002,
