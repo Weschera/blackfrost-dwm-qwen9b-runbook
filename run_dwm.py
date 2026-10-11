@@ -395,6 +395,18 @@ class Run:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(p, dst)
 
+        # davinci: transformers>=5 synthesizes generation_config.json on save_pretrained;
+        # the upstream repo ships none, so prune candidate non-weight files absent
+        # from the source set before the gate sees them
+        for _p in sorted(cand.rglob("*")):
+            if not _p.is_file():
+                continue
+            _rel = str(_p.relative_to(cand))
+            if _p.name.endswith(".safetensors") or _p.name.endswith(".index.json"):
+                continue
+            if _rel not in source_nonweight:
+                _p.unlink()
+
         # enumerate candidate; everything must be either a new shard, the new
         # index, or byte-identical to the source non-weight set
         source_nonweight = {str(p.relative_to(self.source)) for p in self.source.rglob("*")
