@@ -411,6 +411,34 @@ class Run:
             if _rel not in source_nonweight:
                 _p.unlink()
 
+        # davinci stage 2: bit-exact passthrough. transformers homogenizes dtypes
+        # at load (fp32 A_log/norm -> bf16), but STAGE-8 demands protected tensors
+        # bit-identical in original dtype. Rebuild each candidate shard: edited
+        # targets keep their values, everything else is copied from source bytes.
+        _tnames = {t[0] for t in self.targets}
+        _src = {}
+        for _sh in sorted(self.source.glob("*.safetensors")):
+            with safe_open(_sh, framework="pt", device="cpu") as _f:
+                for _k in _f.keys():
+                    _src[_k] = _sh
+        import os as _os
+        from safetensors.torch import load_file as _load, save_file as _save
+        for _sh in sorted(cand.glob("*.safetensors")):
+            _sd = _load(str(_sh))
+            _keep = {}
+            for _k, _v in _sd.items():
+                if _k in _tnames:
+                    _keep[_k] = _v.contiguous()
+                else:
+                    with safe_open(_src[_k], framework="pt", device="cpu") as _f:
+                        _keep[_k] = _f.get_tensor(_k).clone()
+            del _sd
+            _tmp = str(_sh) + ".new"
+            _save(_keep, _tmp, metadata={"format": "pt"})
+            del _keep
+            _os.unlink(_sh)
+            _os.rename(_tmp, str(_sh))
+
         bad = []
         for p in sorted(cand.rglob("*")):
             if not p.is_file():
